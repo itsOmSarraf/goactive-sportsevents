@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, MapPinIcon, UsersIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-
+import ButtonClicking from "./ButtonClicking";
+// import NotificationComponent from "@/components/Notifications";
 export default async function EventsPage() {
     const supabase = createClient();
     const { data: events } = await supabase.from('events').select();
@@ -16,13 +16,12 @@ export default async function EventsPage() {
     if (!user) {
         return redirect("/sign-in");
     }
-    function printId() {
-        return (<></>)
-    }
+
     return (
         <div className="container mx-auto p-4">
             <h1 className="text-2xl font-bold mb-6">Upcoming Events</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* <NotificationComponent /> */}
                 {events?.map((event) => (
                     <Card key={event.id} className="overflow-hidden">
                         <CardHeader>
@@ -48,9 +47,7 @@ export default async function EventsPage() {
                                 <Badge variant={event.is_paid ? "default" : "secondary"}>
                                     {event.is_paid ? `$${event.price}` : "Free"}
                                 </Badge>
-                                <Button>
-                                    Join Event
-                                </Button>
+                                <ButtonClicking id={event.id} />
                             </div>
                         </CardContent>
                     </Card>
