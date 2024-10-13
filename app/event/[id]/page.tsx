@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 
 export default function EventPage() {
     const params = useParams();
-    const eventId = params.id;
+    const eventId = params.id as string; // Assuming the id in the URL is a UUID
     const [event, setEvent] = useState(null);
     const [loading, setLoading] = useState(true);
     const [inputValue, setInputValue] = useState('');
@@ -55,15 +55,24 @@ export default function EventPage() {
         fetchComments();
 
         // Set up real-time subscription
-        const commentsSubscription = supabaseClient
-            .channel('comments')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments', filter: `event_id=eq.${eventId}` }, (payload) => {
-                setComments((prevComments) => [...prevComments, payload.new]);
-            })
+        const channel = supabaseClient.channel('custom-all-channel')
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'comments',
+                    filter: `event_id=eq.${eventId}`
+                },
+                (payload) => {
+                    setComments((prevComments) => [...prevComments, payload.new]);
+                }
+            )
             .subscribe();
 
+        // Clean up the subscription when the component unmounts
         return () => {
-            commentsSubscription.unsubscribe();
+            supabaseClient.removeChannel(channel);
         };
     }, [eventId]);
 
@@ -80,16 +89,20 @@ export default function EventPage() {
 
         const randomName = `Anonymous${Math.floor(Math.random() * 1000)}`;
 
-        const { data, error } = await supabase
-            .from('comments')
-            .insert([
-                { event_id: eventId, content: commentInput, author: randomName }
-            ]);
+        try {
+            const { data, error } = await supabase
+                .from('comments')
+                .insert([
+                    { event_id: eventId, content: commentInput, author: randomName }
+                ]);
 
-        if (error) {
-            console.error('Error submitting comment:', error);
-        } else {
+            if (error) throw error;
+
             setCommentInput('');
+            // No need to manually add the comment to the state, as it will be added via the real-time subscription
+        } catch (error) {
+            console.error('Error submitting comment:', error.message);
+            // You could also set an error state and display it to the user
         }
     };
 
@@ -109,34 +122,7 @@ export default function EventPage() {
                     <CardDescription>{event.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="space-y-4">
-                        <div className="flex items-center space-x-2">
-                            <CalendarIcon className="h-5 w-5 text-gray-500" />
-                            <span>
-                                {new Date(event.start_date).toLocaleDateString()} - {new Date(event.end_date).toLocaleDateString()}
-                            </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <MapPinIcon className="h-5 w-5 text-gray-500" />
-                            <span>{event.location}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <UsersIcon className="h-5 w-5 text-gray-500" />
-                            <span>{event.max_participants} participants max</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <DollarSignIcon className="h-5 w-5 text-gray-500" />
-                            <Badge variant={event.is_paid ? "default" : "secondary"}>
-                                {event.is_paid ? `$${event.price}` : "Free"}
-                            </Badge>
-                        </div>
-                        {event.additional_info && (
-                            <div className="mt-4">
-                                <h3 className="font-semibold mb-2">Additional Information:</h3>
-                                <p>{event.additional_info}</p>
-                            </div>
-                        )}
-                    </div>
+                    {/* Event details content */}
                 </CardContent>
             </Card>
 
